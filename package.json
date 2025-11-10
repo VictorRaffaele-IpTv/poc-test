@@ -1,0 +1,49 @@
+{
+  "name": "avi",
+  "version": "1.0.0",
+  "description": "Activity Validation with Intelligence - Sistema de validação de atividades com IA",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "local": "NODE_ENV=local nodemon app.js",
+    "test": "NODE_ENV=test mocha specs/**/*.spec.js --timeout 10000",
+    "test:activity": "NODE_ENV=test mocha specs/activity/*.spec.js --timeout 10000",
+    "test:response": "NODE_ENV=test mocha specs/response/*.spec.js --timeout 10000",
+    "migrate": "NODE_ENV=${NODE_ENV:-production} knex migrate:latest --knexfile database/knexfile.js",
+    "rollback": "NODE_ENV=${NODE_ENV:-production} knex migrate:rollback --knexfile database/knexfile.js",
+    "linter": "biome check --write ."
+  },
+  "keywords": [
+    "ai",
+    "validation",
+    "scaffold",
+    "kafka",
+    "postgresql",
+    "llm"
+  ],
+  "author": "Victor Raffaele",
+  "license": "MIT",
+  "dependencies": {
+    "scaffold": "git+https://x-token-auth:ATCTT3xFfGN0xsQjM-3F7K_ldU4rM3j9ewsLf-kDrgcFdB4G2cD7e98fQ4RQsn6Htl5t2yfaP3990wy7g3U_xvSPdg17wKNOlMriStTM_eV5pNjSe19T-zEHHP2c_Wx_WOvYjwCj7Jd3PCVdOasYnZIzg3NPo2h9CVF2zkhWmdpvSC1w0RiLRKM%3D7DF44881@bitbucket.org/iptvplatform/scaffold.git#rc-14.0.9",
+    "knex": "^3.1.0",
+    "pg": "^8.11.0",
+    "joi": "^17.12.0",
+    "kafkajs": "^2.2.0",
+    "openai": "^4.20.0",
+    "axios": "^1.6.0",
+    "cors": "^2.8.5",
+    "express": "^4.18.0",
+    "helmet": "^7.1.0",
+    "compression": "^1.7.4"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.0",
+    "mocha": "^10.2.0",
+    "chai": "^4.3.0",
+    "sinon": "^17.0.0",
+    "@biomejs/biome": "^1.4.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

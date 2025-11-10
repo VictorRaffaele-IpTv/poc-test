@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AVI - Activity Validation with Intelligence</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🧠 AVI - Activity Validation with Intelligence</h1>
+            <p class="subtitle">Sistema de validação de atividades com IA</p>
+            <div class="header-actions">
+                <a href="/static/admin.html" class="btn btn-admin">👨‍💼 Área do Professor</a>
+            </div>
+        </header>
+
+        <main>
+            <!-- Lista de Atividades -->
+            <section class="activities-section">
+                <h2>📚 Atividades Disponíveis</h2>
+                <div id="loading" class="loading">Carregando atividades...</div>
+                <div id="activities-list" class="activities-grid" style="display: none;"></div>
+            </section>
+
+            <!-- Modal para Responder Atividade -->
+            <div id="activity-modal" class="modal" style="display: none;">
+                <div class="modal-content">
+                    <span class="close">&times;</span>
+                    <h3 id="modal-title"></h3>
+                    <p id="modal-question"></p>
+                    <form id="response-form">
+                        <div class="form-group">
+                            <label for="student-name">Seu Nome:</label>
+                            <input type="text" id="student-name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="answer">Sua Resposta:</label>
+                            <textarea id="answer" rows="4" required></textarea>
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">📝 Submeter Resposta</button>
+                            <button type="button" class="btn btn-secondary" id="cancel-btn">❌ Cancelar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Modal para Ver Resultado -->
+            <div id="result-modal" class="modal" style="display: none;">
+                <div class="modal-content">
+                    <span class="close">&times;</span>
+                    <h3>📊 Resultado da Validação</h3>
+                    <div id="result-content"></div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-primary" id="close-result-btn">✅ Fechar</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>&copy; 2024 AVI - Powered by AI 🚀</p>
+        </footer>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

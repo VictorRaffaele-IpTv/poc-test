@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AVI - Área do Professor</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <link rel="stylesheet" href="/static/admin.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>👨‍💼 AVI - Área do Professor</h1>
+            <p class="subtitle">Criar e gerenciar atividades</p>
+            <div class="header-actions">
+                <a href="/" class="btn btn-secondary">🔙 Voltar ao Portal</a>
+                <button id="refresh-btn" class="btn btn-info">🔄 Atualizar</button>
+            </div>
+        </header>
+
+        <main>
+            <!-- Navegação -->
+            <nav class="admin-nav">
+                <button class="nav-btn active" data-tab="create">➕ Criar Atividade</button>
+                <button class="nav-btn" data-tab="manage">📋 Gerenciar Atividades</button>
+                <button class="nav-btn" data-tab="responses">💬 Respostas</button>
+                <button class="nav-btn" data-tab="stats">📊 Estatísticas</button>
+            </nav>
+
+            <!-- Tab: Criar Atividade -->
+            <section id="tab-create" class="tab-content active">
+                <div class="form-card">
+                    <h2>➕ Nova Atividade</h2>
+                    <form id="activity-form">
+                        <div class="form-group">
+                            <label for="title">Título da Atividade *</label>
+                            <input type="text" id="title" name="title" required 
+                                   placeholder="Ex: Matemática - Equações de 2º Grau">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="question">Pergunta *</label>
+                            <textarea id="question" name="question" rows="4" required
+                                      placeholder="Digite a pergunta que será apresentada aos alunos..."></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="expected_answer">Resposta Esperada</label>
+                            <textarea id="expected_answer" name="expected_answer" rows="3"
+                                      placeholder="Digite a resposta modelo para ajudar na correção da IA..."></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="difficulty">Dificuldade</label>
+                            <select id="difficulty" name="difficulty">
+                                <option value="easy">🟢 Fácil</option>
+                                <option value="medium" selected>🟡 Médio</option>
+                                <option value="hard">🔴 Difícil</option>
+                            </select>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">
+                                ✅ Criar Atividade
+                            </button>
+                            <button type="reset" class="btn btn-secondary">
+                                🗑️ Limpar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </section>
+
+            <!-- Tab: Gerenciar Atividades -->
+            <section id="tab-manage" class="tab-content">
+                <div class="manage-card">
+                    <h2>📋 Atividades Criadas</h2>
+                    
+                    <div class="filters">
+                        <div class="filter-group">
+                            <label for="filter-difficulty">Filtrar por Dificuldade:</label>
+                            <select id="filter-difficulty">
+                                <option value="">Todas</option>
+                                <option value="easy">🟢 Fácil</option>
+                                <option value="medium">🟡 Médio</option>
+                                <option value="hard">🔴 Difícil</option>
+                            </select>
+                        </div>
+                        
+                        <div class="filter-group">
+                            <label for="filter-status">Status:</label>
+                            <select id="filter-status">
+                                <option value="">Todos</option>
+                                <option value="active" selected>Ativo</option>
+                                <option value="inactive">Inativo</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div id="activities-loading" class="loading">Carregando atividades...</div>
+                    <div id="activities-table-container" style="display: none;">
+                        <table id="activities-table" class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Título</th>
+                                    <th>Dificuldade</th>
+                                    <th>Status</th>
+                                    <th>Criada em</th>
+                                    <th>Respostas</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="activities-tbody">
+                                <!-- Dados serão inseridos via JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Paginação -->
+                    <div id="pagination" class="pagination" style="display: none;">
+                        <button id="prev-page" class="btn btn-secondary">⬅️ Anterior</button>
+                        <span id="page-info">Página 1 de 1</span>
+                        <button id="next-page" class="btn btn-secondary">➡️ Próxima</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Tab: Respostas -->
+            <section id="tab-responses" class="tab-content">
+                <div class="responses-card">
+                    <h2>💬 Respostas dos Alunos</h2>
+                    <div id="responses-loading" class="loading">Selecione uma atividade para ver as respostas...</div>
+                    <div id="responses-container"></div>
+                </div>
+            </section>
+
+            <!-- Tab: Estatísticas -->
+            <section id="tab-stats" class="tab-content">
+                <div class="stats-card">
+                    <h2>📊 Estatísticas do Sistema</h2>
+                    <div id="stats-loading" class="loading">Carregando estatísticas...</div>
+                    <div id="stats-container"></div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Modal para Editar Atividade -->
+        <div id="edit-modal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h3>✏️ Editar Atividade</h3>
+                <form id="edit-activity-form">
+                    <input type="hidden" id="edit-id">
+                    
+                    <div class="form-group">
+                        <label for="edit-title">Título</label>
+                        <input type="text" id="edit-title" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="edit-question">Pergunta</label>
+                        <textarea id="edit-question" rows="4" required></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="edit-expected-answer">Resposta Esperada</label>
+                        <textarea id="edit-expected-answer" rows="3"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="edit-difficulty">Dificuldade</label>
+                        <select id="edit-difficulty">
+                            <option value="easy">🟢 Fácil</option>
+                            <option value="medium">🟡 Médio</option>
+                            <option value="hard">🔴 Difícil</option>
+                        </select>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">💾 Salvar Alterações</button>
+                        <button type="button" class="btn btn-secondary" onclick="closeModal('edit-modal')">❌ Cancelar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Modal de Confirmação -->
+        <div id="confirm-modal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <h3>⚠️ Confirmação</h3>
+                <p id="confirm-message">Tem certeza que deseja continuar?</p>
+                <div class="form-actions">
+                    <button id="confirm-yes" class="btn btn-danger">✅ Sim</button>
+                    <button id="confirm-no" class="btn btn-secondary">❌ Cancelar</button>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>&copy; 2024 AVI - Área do Professor 🚀</p>
+        </footer>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toast-container"></div>
+
+    <script src="/static/admin.js"></script>
+</body>
+</html>
