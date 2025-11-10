@@ -35,7 +35,7 @@ module.exports = async (deps, { body, user, headers }) => {
         expected_answer: expected_answer ? expected_answer.trim() : null,
         difficulty: difficulty || "medium",
         status: "active",
-        created_by: user?.id || null,
+        // created_by: user?.id || null,
         created_at: new Date(),
         updated_at: new Date(),
     }
