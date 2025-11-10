@@ -402,6 +402,75 @@ class ActivityRepository {
             throw error
         }
     }
+
+    /**
+     * Métodos para estatísticas do monitor
+     */
+
+    async count() {
+        const cacheKey = 'activities:count'
+        return await this.cache.getOrSet(
+            cacheKey,
+            async () => {
+                const [{ count }] = await this.db(this.table).count('* as count')
+                return parseInt(count)
+            },
+            this.cacheTTL.stats
+        )
+    }
+
+    async countRecent(timeThreshold) {
+        const cacheKey = `activities:count:recent:${timeThreshold.getTime()}`
+        return await this.cache.getOrSet(
+            cacheKey,
+            async () => {
+                const [{ count }] = await this.db(this.table)
+                    .where('created_at', '>=', timeThreshold)
+                    .count('* as count')
+                return parseInt(count)
+            },
+            2 * 60 * 1000 // Cache por 2 minutos apenas
+        )
+    }
+
+    async getMaxId() {
+        const cacheKey = 'activities:max_id'
+        return await this.cache.getOrSet(
+            cacheKey,
+            async () => {
+                const result = await this.db(this.table).max('id as max_id').first()
+                return result ? parseInt(result.max_id) || 0 : 0
+            },
+            this.cacheTTL.stats
+        )
+    }
+
+    async findRecent(timeThreshold, limit = 5) {
+        return await this.db(this.table)
+            .where('created_at', '>=', timeThreshold)
+            .orderBy('created_at', 'desc')
+            .limit(limit)
+            .select('id', 'title', 'created_at', 'difficulty')
+    }
+
+    async countByDifficulty() {
+        const cacheKey = 'activities:count_by_difficulty'
+        return await this.cache.getOrSet(
+            cacheKey,
+            async () => {
+                const results = await this.db(this.table)
+                    .select('difficulty')
+                    .count('* as count')
+                    .groupBy('difficulty')
+                
+                return results.reduce((acc, row) => {
+                    acc[row.difficulty] = parseInt(row.count)
+                    return acc
+                }, {})
+            },
+            this.cacheTTL.stats
+        )
+    }
 }
 
 module.exports = new ActivityRepository()
