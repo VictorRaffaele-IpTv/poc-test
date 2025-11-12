@@ -21,9 +21,10 @@ jobs:
         env:
           SERVER: ${{ secrets.DEPLOY_SERVER }}
           USER: ${{ secrets.DEPLOY_USER }}
+          PATH: ${{ secrets.DEPLOY_PATH }}
         run: |
           ssh -o StrictHostKeyChecking=no $USER@$SERVER '
-            cd /caminho/do/seu/projeto &&
+            cd $PATH &&
             git pull origin main &&
             docker compose down || true &&
             docker compose up -d --build
