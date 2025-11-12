@@ -12,19 +12,22 @@ class ActivityRepository {
         this.cache = cache.getCache('db') // Use database cache
         this.pubSub = pubSub
         
-        // Cache TTL para diferentes tipos de consulta
+        // Cache TTL para diferentes tipos de consulta (OTIMIZADO: TTLs mais agressivos)
         this.cacheTTL = {
-            single: 15 * 60 * 1000,    // 15 min para atividade individual
-            list: 5 * 60 * 1000,      // 5 min para listas
-            stats: 30 * 60 * 1000     // 30 min para estatísticas
+            single: 30 * 60 * 1000,    // 30 min para atividade individual (era 15 min)
+            list: 10 * 60 * 1000,      // 10 min para listas (era 5 min)
+            stats: 60 * 60 * 1000      // 60 min para estatísticas (era 30 min)
         }
     }
 
     async list(filters = {}, options = {}) {
         const { page = 1, limit = 10, status = "active", difficulty } = filters
         
+        // Limitar máximo de resultados por página
+        const safeLimit = Math.min(limit, 100) // Máximo 100 itens por página
+        
         // Criar chave de cache baseada nos filtros
-        const cacheKey = `activities:list:${JSON.stringify({ page, limit, status, difficulty })}`
+        const cacheKey = `activities:list:${JSON.stringify({ page, limit: safeLimit, status, difficulty })}`
         
         return await this.cache.getOrSet(
             cacheKey,
@@ -39,13 +42,19 @@ class ActivityRepository {
                     query = query.where("difficulty", difficulty)
                 }
 
-                // Contar total
-                const [{ count }] = await query.clone().count("* as count")
-                const total = parseInt(count)
+                // OTIMIZAÇÃO: Contar total em paralelo com a busca de dados
+                const offset = (page - 1) * safeLimit
+                
+                const [countResult, activities] = await Promise.all([
+                    query.clone().count("* as count").first(),
+                    query.clone()
+                        .select('id', 'title', 'question', 'difficulty', 'status', 'created_at', 'updated_at') // Apenas colunas necessárias
+                        .limit(safeLimit)
+                        .offset(offset)
+                        .orderBy("created_at", "desc")
+                ])
 
-                // Aplicar paginação
-                const offset = (page - 1) * limit
-                const activities = await query.limit(limit).offset(offset).orderBy("created_at", "desc")
+                const total = parseInt(countResult.count)
 
                 // Publicar evento de consulta (analytics)
                 this.pubSub.publish('activity', 'list_queried', {
@@ -59,8 +68,8 @@ class ActivityRepository {
                     meta: {
                         total,
                         page: parseInt(page),
-                        limit: parseInt(limit),
-                        totalPages: Math.ceil(total / limit),
+                        limit: safeLimit,
+                        totalPages: Math.ceil(total / safeLimit),
                     },
                 }
             },
@@ -92,7 +101,11 @@ class ActivityRepository {
         return await this.cache.getOrSet(
             cacheKey,
             async () => {
-                const activity = await this.db(this.table).where({ id }).first()
+                // OTIMIZAÇÃO: Selecionar apenas colunas necessárias
+                const activity = await this.db(this.table)
+                    .select('id', 'title', 'question', 'expected_answer', 'difficulty', 'status', 'created_at', 'updated_at', 'created_by')
+                    .where({ id })
+                    .first()
                 
                 // Publicar evento de acesso (para analytics)
                 if (activity) {
@@ -201,18 +214,27 @@ class ActivityRepository {
     }
 
     async getTopByResponses(limit = 10) {
-        const results = await this.db(this.table)
-            .select("activities.*")
-            .select(this.db.raw("COUNT(responses.id) as response_count"))
-            .leftJoin("responses", "activities.id", "responses.activity_id")
-            .groupBy("activities.id")
-            .orderBy("response_count", "desc")
-            .limit(limit)
+        const cacheKey = `activities:top_by_responses:${limit}`
         
-        return results.map(row => ({
-            ...row,
-            response_count: parseInt(row.response_count)
-        }))
+        return await this.cache.getOrSet(
+            cacheKey,
+            async () => {
+                // OTIMIZAÇÃO: Usar subquery para contar responses
+                const results = await this.db(this.table)
+                    .select("activities.id", "activities.title", "activities.difficulty", "activities.created_at")
+                    .select(this.db.raw("COUNT(responses.id) as response_count"))
+                    .leftJoin("responses", "activities.id", "responses.activity_id")
+                    .groupBy("activities.id", "activities.title", "activities.difficulty", "activities.created_at")
+                    .orderBy("response_count", "desc")
+                    .limit(limit)
+                
+                return results.map(row => ({
+                    ...row,
+                    response_count: parseInt(row.response_count)
+                }))
+            },
+            this.cacheTTL.stats
+        )
     }
 
     // Métodos de gerenciamento de cache

@@ -33,5 +33,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 # Usar usuário não-root
 USER nodejs
 
-# Comando para iniciar a aplicação
-CMD ["sh", "-c", "npm run migrate && npm start"]
+# Comando para iniciar a aplicação (migrações são executadas automaticamente no app.js)
+CMD ["npm", "start"]

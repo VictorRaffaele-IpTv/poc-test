@@ -4,8 +4,38 @@ const helmet = require("helmet")
 const compression = require("compression")
 const path = require("path")
 const config = require("./config")
+const knex = require("knex")
 
 const app = express()
+
+// Função para rodar migrações automaticamente
+async function runMigrations() {
+    console.log("📊 Verificando migrações do banco de dados...")
+    
+    try {
+        const db = knex(config.database)
+        
+        // Executar migrações pendentes
+        const [batchNo, migrations] = await db.migrate.latest()
+        
+        if (migrations.length === 0) {
+            console.log("✅ Banco de dados atualizado - nenhuma migração pendente")
+        } else {
+            console.log(`✅ Migrações executadas (Batch ${batchNo}):`)
+            migrations.forEach(migration => {
+                console.log(`   - ${migration}`)
+            })
+        }
+        
+        // Fechar conexão após migrações
+        await db.destroy()
+        
+    } catch (error) {
+        console.error("❌ Erro ao executar migrações:", error.message)
+        console.error(error)
+        process.exit(1) // Falhar se migrações falharem
+    }
+}
 
 // Middleware de segurança e otimização
 app.use(helmet())
@@ -45,9 +75,22 @@ app.use((req, res) => {
     })
 })
 
-const PORT = config.port
-app.listen(PORT, () => {
-    console.log(`AVI Server running on port ${PORT}`)
-    console.log(`Environment: ${process.env.NODE_ENV || "production"}`)
-    console.log(`Access the app at: http://localhost:${PORT}`)
+// Função para iniciar o servidor
+async function startServer() {
+    // 1. Executar migrações primeiro
+    await runMigrations()
+    
+    // 2. Iniciar servidor HTTP
+    const PORT = config.port
+    app.listen(PORT, () => {
+        console.log(`🚀 AVI Server running on port ${PORT}`)
+        console.log(`📦 Environment: ${process.env.NODE_ENV || "production"}`)
+        console.log(`🌐 Access the app at: http://localhost:${PORT}`)
+    })
+}
+
+// Iniciar aplicação
+startServer().catch(error => {
+    console.error("❌ Falha ao iniciar servidor:", error)
+    process.exit(1)
 })

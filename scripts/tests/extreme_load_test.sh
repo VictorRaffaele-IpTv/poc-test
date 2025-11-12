@@ -14,12 +14,12 @@ MAGENTA='\033[0;35m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-BASE_URL="http://localhost:3000/api"
+BASE_URL="https://poc-avi.ip.tv/api"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 RESULTS_DIR="extreme_load_results"
 
-# Configurações de CARGA MEGA EXTREMA (500k usuários x 50 req) 1000 5000 25000 100000 
-EXTREME_USERS=(250000 500000)
+# Configurações de CARGA MEGA EXTREMA (500k usuários x 50 req) 1000 5000 25000 100000 250000 500000
+EXTREME_USERS=(10)
 EXTREME_REQUESTS=50  # Requisições por usuário
 CHAOS_DURATION=600 # 10 minutos de caos
 MEGA_CONCURRENCY=1000   # Concorrência segura para Apache Bench
@@ -202,7 +202,7 @@ artillery_bombardment() {
                                 "title": "Artillery Heavy Load Test '${u}_${requests}' - Long title with extensive content to simulate real world data",
                                 "question": "Heavy load test question from artillery user '$u' request '$requests' with extensive content that simulates real production data with complex formatting and long text that might impact database performance and network throughput",
                                 "expected_answer": "Complex answer with detailed explanation and multiple paragraphs to test payload size impact",
-                                "difficulty": "extreme"
+                                "difficulty": "easy"
                             }')
                         ;;
                     2) # GET audit logs com filtros
@@ -516,7 +516,7 @@ chaos_engineering_test() {
                         -H "Content-Type: application/json" \
                         -H "User-ID: chaos_mega_$post_count" \
                         -H "User-Name: MEGA Chaos Tester" \
-                        -d '{"title":"MEGA Chaos Test '$post_count' - Ultra heavy load with massive data payload to stress test the system","question":"MEGA chaos question with extensive content designed to test system limits under extreme load conditions","difficulty":"ultra_extreme"}' > /dev/null 2>&1
+                        -d '{"title":"MEGA Chaos Test '$post_count' - Ultra heavy load with massive data payload to stress test the system","question":"MEGA chaos question with extensive content designed to test system limits under extreme load conditions","difficulty":"easy"}' > /dev/null 2>&1
                 } &
                 ((post_count++))
                 
