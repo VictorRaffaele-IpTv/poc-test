@@ -49,7 +49,10 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
@@ -90,6 +93,60 @@ services:
       start_period: 60s
       retries: 3
     restart: unless-stopped
+
+  avi-worker:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    command: node worker.js
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      ROUTES_NAME: worker
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: avi_user
+      DB_PASSWORD: avi_pass
+      DB_NAME: avi_db
+      KAFKA_BROKERS: kafka:9092
+      REDIS_URL: redis://redis:6379
+    volumes:
+      - ../logs:/app/logs
+    restart: unless-stopped
+
+  avi-job:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    command: node worker.js
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      ROUTES_NAME: job              # ← Define que é Job
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: avi_user
+      DB_PASSWORD: avi_pass
+      DB_NAME: avi_db
+      KAFKA_BROKERS: kafka:9092
+      REDIS_URL: redis://redis:6379
+    volumes:
+      - ../logs:/app/logs
+    restart: unless-stopped
+    deploy:
+      replicas: 1                   # Apenas 1 instância
 
 volumes:
   postgres_data:

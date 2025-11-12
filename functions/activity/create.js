@@ -4,6 +4,7 @@
  */
 module.exports = async (deps, { body, user, headers }) => {
     const { Activity, actionRegister, notification, pubSub } = deps
+    const { invalidateActivitiesCache } = require('../../deps/cacheMiddleware')
 
     // Detectar se é operação em batch
     if (Array.isArray(body) || body.activities) {
@@ -35,13 +36,15 @@ module.exports = async (deps, { body, user, headers }) => {
         expected_answer: expected_answer ? expected_answer.trim() : null,
         difficulty: difficulty || "medium",
         status: "active",
-        // created_by: user?.id || null,
         created_at: new Date(),
         updated_at: new Date(),
     }
 
     // Criar atividade no banco de dados (já publica evento via PubSub)
     const activity = await Activity.create(activityData)
+    
+    // Invalidar cache de activities
+    invalidateActivitiesCache().catch(err => console.error('Cache invalidation error:', err))
 
     // Registrar ação no ActionRegister
     await actionRegister.registerCreate("activity", activity.id, user?.id, user?.name, {
@@ -78,6 +81,7 @@ module.exports = async (deps, { body, user, headers }) => {
 // Handler para operações em batch
 async function handleBatchCreate(deps, { body, user, headers }) {
     const { Activity, actionRegister, pubSub } = deps
+    const { invalidateActivitiesCache } = require('../../deps/cacheMiddleware')
     const activities = Array.isArray(body) ? body : body.activities
 
     // Validação básica
@@ -122,13 +126,15 @@ async function handleBatchCreate(deps, { body, user, headers }) {
         expected_answer: activity.expected_answer ? activity.expected_answer.trim() : null,
         difficulty: activity.difficulty || "medium",
         status: "active",
-        created_by: user?.id || null,
         created_at: new Date(),
         updated_at: new Date(),
     }))
 
     // Executar batch insert
     const results = await Activity.batchInsert(activitiesData)
+    
+    // Invalidar cache de activities
+    invalidateActivitiesCache().catch(err => console.error('Cache invalidation error:', err))
 
     // Registrar ações em batch no ActionRegister
     const actionBatch = actionRegister.createBatch()

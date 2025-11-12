@@ -15,7 +15,7 @@ const config = {
             // OTIMIZAÇÃO: Connection pool otimizado para alta carga
             pool: {
                 min: 10,                    // Mínimo de 10 conexões sempre abertas
-                max: 50,                    // Máximo de 50 conexões (era indefinido)
+                max: 100,                    // Máximo de 100 conexões (aumentado para 1 instância = 65k req)
                 acquireTimeoutMillis: 60000, // 60s para adquirir conexão
                 createTimeoutMillis: 10000,  // 10s para criar nova conexão
                 idleTimeoutMillis: 30000,    // 30s timeout para conexões idle
@@ -43,6 +43,9 @@ const config = {
         kafka: {
             clientId: "avi-local",
             brokers: ["localhost:9092"],
+        },
+        redis: {
+            url: process.env.REDIS_URL || "redis://localhost:6379"
         },
         openai: {
             apiKey: process.env.OPENAI_API_TOKEN || "",
@@ -80,6 +83,9 @@ const config = {
             clientId: "avi-test",
             brokers: ["localhost:9092"],
         },
+        redis: {
+            url: process.env.REDIS_URL || "redis://localhost:6379"
+        },
         openai: {
             apiKey: process.env.OPENAI_API_TOKEN || "",
             model: process.env.OPENAI_MODEL || "gpt-4",
@@ -102,7 +108,7 @@ const config = {
             // OTIMIZAÇÃO: Connection pool agressivo para produção
             pool: {
                 min: 20,                     // Mínimo de 20 conexões em produção
-                max: 100,                    // Máximo de 100 conexões (suporta alta carga)
+                max: 200,                    // Máximo de 200 conexões (65k req/s com 1 instância)
                 acquireTimeoutMillis: 60000, // 60s para adquirir conexão
                 createTimeoutMillis: 10000,  // 10s para criar nova conexão
                 idleTimeoutMillis: 30000,    // 30s timeout para conexões idle
@@ -128,6 +134,9 @@ const config = {
         kafka: {
             clientId: process.env.KAFKA_CLIENT_ID || "avi-production",
             brokers: (process.env.KAFKA_BROKERS || "localhost:9092").split(","),
+        },
+        redis: {
+            url: process.env.REDIS_URL || "redis://redis:6379"
         },
         openai: {
             apiKey: process.env.OPENAI_API_TOKEN || "",

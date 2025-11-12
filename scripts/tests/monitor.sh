@@ -6,7 +6,7 @@
 set -euo pipefail
 
 # Configurações
-PRODUCTION_URL="https://poc-avi.ip.tv"
+PRODUCTION_URL="http://localhost:3000"
 API_BASE="${PRODUCTION_URL}/api"
 MONITOR_DIR="./monitor_results"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
@@ -238,17 +238,38 @@ monitor_queues_messaging() {
     local system_queued=$(echo "$queue_response" | jq -r '.data.system_queue.queued // 0' 2>/dev/null || echo "0")
     local total_queued=$((create_queued + read_queued + system_queued))
     
+    # Obter LAG real do Kafka (mensagens pendentes)
+    # Prioridade 1: Via API (funciona remotamente)
+    local kafka_lag=0
+    local kafka_lag_response=$(curl -s "${API_BASE}/system/kafka-lag" --connect-timeout 5 --max-time 10 2>/dev/null || echo "{}")
+    local kafka_lag_from_api=$(echo "$kafka_lag_response" | jq -r '.data.total_lag // .total_lag // -1' 2>/dev/null || echo "-1")
+    
+    if [ "$kafka_lag_from_api" != "-1" ]; then
+        # API retornou LAG válido
+        kafka_lag="$kafka_lag_from_api"
+    elif command -v docker &> /dev/null && docker ps 2>/dev/null | grep -q kafka; then
+        # Fallback: tentar via Docker local (apenas se disponível)
+        local lag_output=$(docker compose -f ../../ci/docker-compose.yml exec -T kafka kafka-consumer-groups \
+            --bootstrap-server localhost:9092 \
+            --all-groups \
+            --describe 2>/dev/null || echo "")
+        
+        # Somar LAG de todas as partições (coluna 6)
+        kafka_lag=$(echo "$lag_output" | awk 'NR>1 {if($6 ~ /^[0-9]+$/) sum+=$6} END {print sum+0}')
+    else
+        # Não conseguiu obter LAG - mostrar N/A
+        kafka_lag="N/A"
+    fi
+    
     # Obter dados mais informativos do sistema
     local cache_items=$(echo "$monitoring_response" | jq -r '.data.cache.summary.total_items // 0' 2>/dev/null || echo "0")
     local cache_hit_rate=$(echo "$monitoring_response" | jq -r '.data.cache.summary.avg_hit_rate // "0%"' 2>/dev/null || echo "0%")
     local pubsub_messages=$(echo "$monitoring_response" | jq -r '.data.pubsub.message_history_size // 0' 2>/dev/null || echo "0")
     local total_activities=$(echo "$monitoring_response" | jq -r '.data.database.total_activities // 0' 2>/dev/null || echo "0")
     
-    # Usar dados mais dinâmicos em vez de batch (que sempre está zerado)
-    # Batch Pending -> Cache Items (mostra atividade do cache)
-    # Batch Created -> PubSub Messages (mostra atividade de mensageria)
-    local batch_pending="$cache_items"      # Cache items em uso
-    local batch_processed="$pubsub_messages" # Messages no histórico PubSub
+    # Usar LAG real do Kafka ao invés do histórico PubSub
+    local batch_pending="$cache_items"       # Cache items em uso
+    local batch_processed="$kafka_lag"       # LAG REAL do Kafka (mensagens pendentes)
     local queue_processed="$total_processed"
     local queue_active="$total_active" 
     local queue_size="$total_queued"
@@ -380,7 +401,7 @@ display_dashboard() {
     echo -e "${BLUE}🎯 CACHE & MENSAGERIA${NC}"
     echo "────────────────────────────────"
     echo -e "🗄️  Cache Items:      $(number_color "$batch_pending" "100" "500")"
-    echo -e "📡 PubSub Messages:  $(number_color "$batch_processed" "10" "100")"
+    echo -e "� Kafka Queue LAG:  $(number_color "$batch_processed" "10" "100")"
     echo -e "✅ PubSub Status:    $(status_color "$pubsub_active")"
     echo -e "⚙️  Cache Status:     ${GREEN}${cache_status_display}${NC}"
     echo -e "🔄 Queue Health:     $(status_color "$queue_health")"
@@ -430,12 +451,6 @@ display_dashboard() {
         echo -e "🗄️  Crescimento Cache:   $(number_color "$cache_growth" "50" "200") itens"
     else
         echo -e "🗄️  Crescimento Cache:   ${YELLOW}${cache_growth}${NC}"
-    fi
-    
-    if [[ "$pubsub_growth" =~ ^[0-9]+$ ]]; then
-        echo -e "📡 Mensagens PubSub:    $(number_color "$pubsub_growth" "5" "50") novas"
-    else
-        echo -e "📡 Mensagens PubSub:    ${YELLOW}${pubsub_growth}${NC}"
     fi
     echo ""
     

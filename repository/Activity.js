@@ -88,7 +88,6 @@ class ActivityRepository {
             activity_id: activity.id,
             title: activity.title,
             difficulty: activity.difficulty,
-            created_by: data.created_by || 'system'
         })
         
         return activity
@@ -103,7 +102,7 @@ class ActivityRepository {
             async () => {
                 // OTIMIZAÇÃO: Selecionar apenas colunas necessárias
                 const activity = await this.db(this.table)
-                    .select('id', 'title', 'question', 'expected_answer', 'difficulty', 'status', 'created_at', 'updated_at', 'created_by')
+                    .select('id', 'title', 'question', 'expected_answer', 'difficulty', 'status', 'created_at', 'updated_at')
                     .where({ id })
                     .first()
                 

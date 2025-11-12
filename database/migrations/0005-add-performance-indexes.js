@@ -24,10 +24,21 @@ exports.up = async function(knex) {
         
         // Índice composto para queries com múltiplos filtros
         table.index(['status', 'difficulty', 'created_at'], 'idx_activities_status_difficulty_created')
-        
-        // Índice para busca por criador
-        table.index(['created_by'], 'idx_activities_created_by')
     })
+    
+    // Índices GIN para full-text search (CRÍTICO para performance)
+    console.log('📝 Criando índices GIN para busca textual...')
+    await knex.raw(`
+        CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_activities_title_search 
+        ON activities USING gin(to_tsvector('english', COALESCE(title, '')))
+    `)
+    
+    await knex.raw(`
+        CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_activities_question_search 
+        ON activities USING gin(to_tsvector('english', COALESCE(question, '')))
+    `)
+    
+    console.log('✅ Índices GIN criados')
     
     // Índices para tabela responses (se existir)
     const hasResponses = await knex.schema.hasTable('responses')
@@ -89,8 +100,11 @@ exports.down = async function(knex) {
         table.dropIndex(['difficulty'], 'idx_activities_difficulty')
         table.dropIndex(['status'], 'idx_activities_status')
         table.dropIndex(['status', 'difficulty', 'created_at'], 'idx_activities_status_difficulty_created')
-        table.dropIndex(['created_by'], 'idx_activities_created_by')
     })
+    
+    // Remover índices GIN
+    await knex.raw('DROP INDEX CONCURRENTLY IF EXISTS idx_activities_title_search')
+    await knex.raw('DROP INDEX CONCURRENTLY IF EXISTS idx_activities_question_search')
     
     // Remover índices da tabela responses (se existir)
     const hasResponses = await knex.schema.hasTable('responses')

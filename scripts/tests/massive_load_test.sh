@@ -6,7 +6,7 @@
 set -euo pipefail
 
 # Configurações
-PRODUCTION_URL="https://poc-avi.ip.tv"
+PRODUCTION_URL="http://localhost:3000"
 API_BASE="${PRODUCTION_URL}/api"
 TEST_DIR="./massive_load_results"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
@@ -21,10 +21,10 @@ CYAN='\033[0;36m'
 NC='\033[0m'
 
 # Parâmetros do teste
-TOTAL_REQUESTS=2600
+TOTAL_REQUESTS=26000
 WRITE_PERCENTAGE=20
 READ_PERCENTAGE=80
-CONCURRENT_WORKERS=10  # Workers simultâneos
+CONCURRENT_WORKERS=100  # Reduzido de 100 para 20 para melhor controle
 
 # Calcular distribuição
 WRITE_REQUESTS=$((TOTAL_REQUESTS * WRITE_PERCENTAGE / 100))
@@ -100,7 +100,7 @@ worker_function() {
                         -X POST "${API_BASE}/activity" \
                         -H "Content-Type: application/json" \
                         -d "$activity_data" \
-                        --connect-timeout 10 --max-time 30 2>/dev/null || echo "HTTPSTATUS:000")
+                        --connect-timeout 30 --max-time 60 2>/dev/null || echo "HTTPSTATUS:000")
         
         local http_status=$(echo "$response" | grep "HTTPSTATUS:" | cut -d: -f2)
         local response_body=$(echo "$response" | sed 's/HTTPSTATUS:.*$//')
@@ -118,8 +118,8 @@ worker_function() {
             echo "[Worker ${worker_id}] CREATE failed with status ${http_status}" >> "${ERROR_LOG}"
         fi
         
-        # Pequeno delay para não sobrecarregar (ajuste conforme necessário)
-        sleep 0.01
+        # Delay ajustável baseado no número de workers (menos workers = mais delay)
+        sleep 0.05  # 50ms entre requests para evitar sobrecarga
     done
     
     # Ler atividades (READ)
@@ -131,13 +131,13 @@ worker_function() {
             # Listar atividades
             local response=$(curl -s -w "\nHTTPSTATUS:%{http_code}" \
                             -X GET "${API_BASE}/activity" \
-                            --connect-timeout 10 --max-time 30 2>/dev/null || echo "HTTPSTATUS:000")
+                            --connect-timeout 30 --max-time 60 2>/dev/null || echo "HTTPSTATUS:000")
         else
             # Buscar atividade aleatória por ID
             local random_id=$((1 + RANDOM % 1000))
             local response=$(curl -s -w "\nHTTPSTATUS:%{http_code}" \
                             -X GET "${API_BASE}/activity/${random_id}" \
-                            --connect-timeout 10 --max-time 30 2>/dev/null || echo "HTTPSTATUS:000")
+                            --connect-timeout 30 --max-time 60 2>/dev/null || echo "HTTPSTATUS:000")
         fi
         
         local http_status=$(echo "$response" | grep "HTTPSTATUS:" | cut -d: -f2)
@@ -152,8 +152,8 @@ worker_function() {
             echo "[Worker ${worker_id}] READ failed with status ${http_status}" >> "${ERROR_LOG}"
         fi
         
-        # Delay menor para reads (são mais leves)
-        sleep 0.005
+        # Delay menor para reads (mais leves que writes)
+        sleep 0.02  # 20ms entre reads
     done
 }
 
