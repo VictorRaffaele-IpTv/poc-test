@@ -233,7 +233,7 @@ const createQueue = new RequestQueue({
 
 const readQueue = new RequestQueue({
     maxConcurrent: 200,  // 200 reads simultâneos = ~1000 reads/s @ 200ms latência
-    maxQueueSize: 15000, // Fila para 15.000 reads = ~15 segundos de buffer @ 1000/s
+    maxQueueSize: 50000, // Fila para 15.000 reads = ~15 segundos de buffer @ 1000/s
     timeout: 30000       // 30s timeout (reads são mais rápidas)
 })
 
