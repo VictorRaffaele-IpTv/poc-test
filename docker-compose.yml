@@ -1,0 +1,164 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  avi-postgres:
+    image: postgres:17
+    container_name: avi-postgres
+    environment:
+      POSTGRES_DB: avi_db
+      POSTGRES_USER: avi_user
+      POSTGRES_PASSWORD: avi_pass
+      POSTGRES_HOST_AUTH_METHOD: md5
+      POSTGRES_INITDB_ARGS: "--auth-host=md5"
+    volumes:
+      - avi_postgres_data:/var/lib/postgresql/data
+      - ./ci/postgres-init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U avi_user -d avi_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - avi-internal
+    restart: unless-stopped
+
+  # Redis Cache
+  avi-redis:
+    image: redis:7-alpine
+    container_name: avi-redis
+    volumes:
+      - avi_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - avi-internal
+    restart: unless-stopped
+
+  # Zookeeper for Kafka
+  avi-zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    container_name: avi-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - avi-internal
+    restart: unless-stopped
+
+  # Kafka Message Broker
+  avi-kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: avi-kafka
+    depends_on:
+      - avi-zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: avi-zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://avi-kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - avi-internal
+    restart: unless-stopped
+
+  # AVI API Application
+  avi-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: avi-api
+    depends_on:
+      avi-postgres:
+        condition: service_healthy
+      avi-redis:
+        condition: service_healthy
+      avi-kafka:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DB_HOST: avi-postgres
+      DB_PORT: 5432
+      DB_USER: avi_user
+      DB_PASSWORD: avi_pass
+      DB_NAME: avi_db
+      KAFKA_BROKERS: avi-kafka:9092
+      REDIS_URL: redis://avi-redis:6379
+      # OpenAI Configuration (usar variável de ambiente real)
+      OPENAI_API_TOKEN: ${OPENAI_API_TOKEN:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4}
+      DEFAULT_LLM_PROVIDER: ${DEFAULT_LLM_PROVIDER:-openai}
+    volumes:
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/activity?limit=1"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
+    networks:
+      - avi-internal
+      - web  # Rede externa do nginx
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Kafka Worker (processamento assíncrono)
+  avi-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: avi-worker
+    command: ["node", "worker.js"]
+    depends_on:
+      avi-postgres:
+        condition: service_healthy
+      avi-redis:
+        condition: service_healthy
+      avi-kafka:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DB_HOST: avi-postgres
+      DB_PORT: 5432
+      DB_USER: avi_user
+      DB_PASSWORD: avi_pass
+      DB_NAME: avi_db
+      KAFKA_BROKERS: avi-kafka:9092
+      REDIS_URL: redis://avi-redis:6379
+      # OpenAI Configuration
+      OPENAI_API_TOKEN: ${OPENAI_API_TOKEN:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4}
+      DEFAULT_LLM_PROVIDER: ${DEFAULT_LLM_PROVIDER:-openai}
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - avi-internal
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  avi_postgres_data:
+  avi_redis_data:
+
+networks:
+  avi-internal:
+    driver: bridge
+  web:
+    external: true

@@ -1,4 +1,9 @@
 node_modules/
-scripts/tests/load_results/
-scripts/tests/monitor_results/
-scripts/tests/massive_load_results/
+.env
+.env.local
+.env.production
+.env.development
+*.log
+logs/
+worker.log
+temp_*.json
